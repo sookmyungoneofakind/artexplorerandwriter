@@ -6,9 +6,7 @@
     <title>Met Art & English Writing</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- jsPDF and html2canvas CDN for PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF and html2canvas CDN for PDF export (REMOVED) -->
     <style>
         /* Google Fonts for better readability */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -39,6 +37,15 @@
         .btn-pixel:active {
             transform: translate(4px, 4px);
             box-shadow: 0px 0px 0px #1f2937;
+        }
+        
+        .btn-pixel:disabled {
+            background-color: #d1d5db; /* gray-300 */
+            color: #6b7280; /* gray-500 */
+            border-color: #9ca3af; /* gray-400 */
+            box-shadow: 4px 4px 0px #9ca3af;
+            cursor: not-allowed;
+            transform: none;
         }
         
         /* Loading spinner style */
@@ -96,23 +103,13 @@
         <!-- Action Buttons -->
         <footer class="flex justify-center items-center gap-4 mt-8">
             <button id="load-artwork-btn" class="btn-pixel">Load New Artwork</button>
-            <button id="save-pdf-btn" class="btn-pixel bg-blue-500 text-white border-blue-700 shadow-[4px_4px_0px_#1d4ed8]">Save as PDF</button>
+            <button id="save-pdf-btn" class="btn-pixel bg-blue-500 text-white border-blue-700 shadow-[4px_4px_0px_#1d4ed8]" disabled>Save as PDF</button>
         </footer>
 
     </div>
 
     <!-- This is a hidden element used ONLY for PDF generation -->
-    <!-- It mirrors the visible content for a clean export -->
-    <div id="pdf-export-content" class="hidden">
-        <div style="width: 100%; padding: 20px; box-sizing: border-box; background: white;">
-            <img id="pdf-image" src="" style="max-width: 100%; border: 1px solid #ddd; margin-bottom: 20px;">
-            <h2 id="pdf-title" style="font-size: 24px; font-weight: bold; margin: 0;"></h2>
-            <p id="pdf-info" style="font-size: 16px; color: #555; margin-top: 5px; margin-bottom: 20px;"></p>
-            
-            <h3 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">My Thoughts</h3>
-            <pre id="pdf-text" style="font-family: 'Inter', sans-serif; font-size: 16px; white-space: pre-wrap; word-wrap: break-word; color: #333; border-top: 1px solid #eee; padding-top: 15px;"></pre>
-        </div>
-    </div>
+    <!-- It mirrors the visible content for a clean export (REMOVED) -->
 
 
     <script>
@@ -174,6 +171,7 @@
                 artworkTitle.textContent = '작품을 불러오는 데 실패했습니다.';
                 artworkInfo.textContent = '네트워크 연결을 확인하거나 다시 시도해주세요.';
                 artworkImage.src = 'https://placehold.co/600x400/fecaca/991b1b?text=Error';
+                savePdfBtn.disabled = true; // Ensure button is disabled on error
             } finally {
                 // 7. Hide loader and show artwork display
                 loader.classList.add('hidden');
@@ -192,70 +190,94 @@
             const artist = artwork.artistDisplayName || 'Unknown Artist';
             const year = artwork.objectDate || 'Unknown Year';
             artworkInfo.textContent = `${artist}, ${year}`;
+            
+            // Enable the save button once an artwork is loaded
+            savePdfBtn.disabled = false;
         }
         
         /**
-         * Generates and saves a PDF of the artwork and the user's writing.
+         * Opens a new window with the artwork and text, and triggers the browser's print dialog.
+         * This allows saving as a PDF through the browser's native functionality.
          */
-        async function saveAsPDF() {
-            // Check if jsPDF and html2canvas are loaded
-            if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-                alert('PDF library is not loaded. Please check your internet connection and try again.');
-                return;
-            }
+        function saveAsPDF() {
+            // 1. Get the current content from the page
+            const imageUrl = artworkImage.src;
+            const title = artworkTitle.textContent;
+            const info = artworkInfo.textContent;
+            // Get raw text. The <pre> tag will handle formatting.
+            const userText = writingInput.value;
 
-            // 1. Get the hidden container meant for PDF export
-            const pdfContent = document.getElementById('pdf-export-content');
+            // 2. Create the HTML content for the print-friendly page
+            const printHtml = `
+                <!DOCTYPE html>
+                <html lang="ko">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>${title} - Art Response</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+                        body { 
+                            font-family: 'Inter', sans-serif; 
+                            margin: 40px; 
+                            color: #333;
+                        }
+                        img { 
+                            max-width: 90%; 
+                            display: block;
+                            margin: 0 auto 20px auto; 
+                            border: 1px solid #eee;
+                            page-break-inside: avoid;
+                        }
+                        h1 { font-size: 28px; font-weight: 700; margin-bottom: 5px;}
+                        p { font-size: 16px; color: #666; margin-top: 0; margin-bottom: 30px;}
+                        h2 { 
+                            font-size: 22px; 
+                            font-weight: 600;
+                            border-top: 2px solid #f0f0f0; 
+                            padding-top: 20px; 
+                            margin-top: 30px;
+                        }
+                        /* Style the pre tag to look like normal text flow */
+                        pre { 
+                            font-family: 'Inter', sans-serif; 
+                            font-size: 16px; 
+                            line-height: 1.6;
+                            white-space: pre-wrap; /* Respects newlines and spaces */
+                            word-wrap: break-word;
+                            color: #333;
+                            margin: 0;
+                            padding: 0;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <img id="print-image" src="${imageUrl}" alt="${title}">
+                    <h1>${title}</h1>
+                    <p>${info}</p>
+                    
+                    <h2>My Thoughts</h2>
+                    <pre>${userText}</pre>
+                </body>
+                </html>
+            `;
             
-            // 2. Update the content of the hidden container with current data
-            document.getElementById('pdf-image').src = artworkImage.src;
-            document.getElementById('pdf-title').textContent = artworkTitle.textContent;
-            document.getElementById('pdf-info').textContent = artworkInfo.textContent;
-            document.getElementById('pdf-text').textContent = writingInput.value;
+            // 3. Open a new window and write the HTML to it
+            const printWindow = window.open('', '_blank');
+            printWindow.document.open();
+            printWindow.document.write(printHtml);
+            printWindow.document.close();
 
-            // 3. Make the hidden container temporarily visible for html2canvas to capture it
-            pdfContent.classList.remove('hidden');
-
-            try {
-                // 4. Use html2canvas to capture the element as an image
-                const canvas = await html2canvas(pdfContent, {
-                    scale: 2, // Increase scale for better resolution
-                    useCORS: true // Important for external images
-                });
-                
-                // 5. Create a new jsPDF instance
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'px',
-                    format: 'a4'
-                });
-
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                const imgWidth = canvas.width;
-                const imgHeight = canvas.height;
-                
-                // Calculate aspect ratio to fit image in PDF
-                const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-                const newImgWidth = imgWidth * ratio;
-                const newImgHeight = imgHeight * ratio;
-                
-                const imgData = canvas.toDataURL('image/png');
-                
-                // 6. Add the captured image to the PDF
-                pdf.addImage(imgData, 'PNG', 0, 0, newImgWidth, newImgHeight);
-                
-                // 7. Save the PDF with a dynamic file name
-                const fileName = `${artworkTitle.textContent.replace(/\s+/g, '_')}_response.pdf`;
-                pdf.save(fileName);
-
-            } catch(error) {
-                console.error("PDF generation failed:", error);
-                alert("PDF를 생성하는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
-            } finally {
-                // 8. Hide the temporary container again
-                pdfContent.classList.add('hidden');
+            // 4. Wait for the image in the new window to load, then trigger print
+            const printImage = printWindow.document.getElementById('print-image');
+            
+            // This logic ensures print is called after the image is ready.
+            if (printImage.complete && printImage.naturalHeight !== 0) {
+                 // A small timeout helps ensure content is fully rendered before printing
+                 setTimeout(() => { printWindow.print(); }, 500);
+            } else {
+                printImage.onload = () => {
+                    printWindow.print();
+                };
             }
         }
 
@@ -269,4 +291,5 @@
 
 </body>
 </html>
+
 
