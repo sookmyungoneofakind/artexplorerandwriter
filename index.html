@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Met Art & English Writing</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jsPDF and html2canvas CDN for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* Google Fonts for better readability */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom style for pixel-art style buttons */
+        .btn-pixel {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            padding: 12px 24px;
+            border: 3px solid #1f2937; /* gray-800 */
+            background-color: #f3f4f6; /* gray-100 */
+            color: #1f2937;
+            box-shadow: 4px 4px 0px #1f2937;
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn-pixel:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #1f2937;
+        }
+        
+        .btn-pixel:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px #1f2937;
+        }
+        
+        /* Loading spinner style */
+        .loader {
+            border: 8px solid #f3f4f6;
+            border-top: 8px solid #3b82f6; /* blue-500 */
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-5xl font-bold text-gray-900">Art Explorer & Writer</h1>
+            <p class="text-gray-600 mt-2">Metropolitan Museum of Art와 함께하는 미술 & 영어 글쓰기</p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main id="app-content" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- Art Section (Left) -->
+            <section id="art-section" class="bg-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center min-h-[400px]">
+                <div id="loader" class="loader hidden"></div>
+                <div id="art-display" class="w-full text-center">
+                    <img id="artwork-image" src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Load+Artwork" alt="Artwork Image" class="w-full max-w-lg mx-auto h-auto object-contain rounded-md mb-4 border" onerror="this.onerror=null; this.src='https://placehold.co/600x400/e2e8f0/94a3b8?text=Image+Not+Found';">
+                    <h2 id="artwork-title" class="text-2xl font-bold mt-4">작품을 불러와주세요</h2>
+                    <p id="artwork-info" class="text-gray-500 mt-1">버튼을 클릭하여 새로운 작품을 탐색하세요.</p>
+                </div>
+            </section>
+
+            <!-- Writing Section (Right) -->
+            <section id="writing-section" class="bg-white p-6 rounded-lg shadow-md flex flex-col">
+                <h3 class="text-xl font-semibold mb-4">Writing Prompts</h3>
+                <ul class="list-disc list-inside text-gray-700 space-y-2 mb-4">
+                    <li>What objects, people, or colors do you notice first?</li>
+                    <li>What small details stand out to you?</li>
+                    <li>How does this artwork make you feel?</li>
+                    <li>What do you think the artist wanted to express?</li>
+                    <li>Why do you think this artwork is important today?</li>
+                </ul>
+                <textarea id="writing-input" class="w-full h-64 flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Share your thoughts here..."></textarea>
+            </section>
+        </main>
+        
+        <!-- Action Buttons -->
+        <footer class="flex justify-center items-center gap-4 mt-8">
+            <button id="load-artwork-btn" class="btn-pixel">Load New Artwork</button>
+            <button id="save-pdf-btn" class="btn-pixel bg-blue-500 text-white border-blue-700 shadow-[4px_4px_0px_#1d4ed8]">Save as PDF</button>
+        </footer>
+
+    </div>
+
+    <!-- This is a hidden element used ONLY for PDF generation -->
+    <!-- It mirrors the visible content for a clean export -->
+    <div id="pdf-export-content" class="hidden">
+        <div style="width: 100%; padding: 20px; box-sizing: border-box; background: white;">
+            <img id="pdf-image" src="" style="max-width: 100%; border: 1px solid #ddd; margin-bottom: 20px;">
+            <h2 id="pdf-title" style="font-size: 24px; font-weight: bold; margin: 0;"></h2>
+            <p id="pdf-info" style="font-size: 16px; color: #555; margin-top: 5px; margin-bottom: 20px;"></p>
+            
+            <h3 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">My Thoughts</h3>
+            <pre id="pdf-text" style="font-family: 'Inter', sans-serif; font-size: 16px; white-space: pre-wrap; word-wrap: break-word; color: #333; border-top: 1px solid #eee; padding-top: 15px;"></pre>
+        </div>
+    </div>
+
+
+    <script>
+        // DOM Element References
+        const loadArtworkBtn = document.getElementById('load-artwork-btn');
+        const savePdfBtn = document.getElementById('save-pdf-btn');
+        const loader = document.getElementById('loader');
+        const artDisplay = document.getElementById('art-display');
+        
+        const artworkImage = document.getElementById('artwork-image');
+        const artworkTitle = document.getElementById('artwork-title');
+        const artworkInfo = document.getElementById('artwork-info');
+        const writingInput = document.getElementById('writing-input');
+
+        // Met Museum API Configuration
+        const API_BASE_URL = 'https://collectionapi.metmuseum.org/public/collection/v1/';
+
+        /**
+         * Fetches a random artwork from the Met Museum API.
+         * The API doesn't have a "random" endpoint, so we first get a list of all
+         * public domain object IDs and then pick one randomly.
+         */
+        async function fetchRandomArtwork() {
+            // 1. Show loader and hide artwork display
+            loader.classList.remove('hidden');
+            artDisplay.classList.add('hidden');
+            
+            try {
+                // 2. Fetch all object IDs for artworks that are in the public domain and have images.
+                // We search for "landscape" to get a variety of interesting, SFW images.
+                const response = await fetch(`${API_BASE_URL}search?q=landscape&isPublicDomain=true`);
+                if (!response.ok) throw new Error('Network response was not ok.');
+                const data = await response.json();
+
+                if (!data.objectIDs || data.objectIDs.length === 0) {
+                    throw new Error('No artworks found.');
+                }
+
+                // 3. Select a random object ID from the list
+                const randomObjectID = data.objectIDs[Math.floor(Math.random() * data.objectIDs.length)];
+
+                // 4. Fetch the details for the selected artwork
+                const objectResponse = await fetch(`${API_BASE_URL}objects/${randomObjectID}`);
+                if (!objectResponse.ok) throw new Error('Could not fetch artwork details.');
+                const artwork = await objectResponse.json();
+
+                // 5. If the artwork has no primary image, try again by calling the function recursively
+                if (!artwork.primaryImageSmall) {
+                    console.log('Artwork has no image, trying again...');
+                    fetchRandomArtwork();
+                    return;
+                }
+
+                // 6. Display the fetched artwork
+                displayArtwork(artwork);
+
+            } catch (error) {
+                console.error('Error fetching artwork:', error);
+                artworkTitle.textContent = '작품을 불러오는 데 실패했습니다.';
+                artworkInfo.textContent = '네트워크 연결을 확인하거나 다시 시도해주세요.';
+                artworkImage.src = 'https://placehold.co/600x400/fecaca/991b1b?text=Error';
+            } finally {
+                // 7. Hide loader and show artwork display
+                loader.classList.add('hidden');
+                artDisplay.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Updates the DOM to display the artwork information.
+         * @param {object} artwork - The artwork data object from the API.
+         */
+        function displayArtwork(artwork) {
+            artworkImage.src = artwork.primaryImageSmall || 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Image+Not+Found';
+            artworkTitle.textContent = artwork.title || 'Untitled';
+            
+            const artist = artwork.artistDisplayName || 'Unknown Artist';
+            const year = artwork.objectDate || 'Unknown Year';
+            artworkInfo.textContent = `${artist}, ${year}`;
+        }
+        
+        /**
+         * Generates and saves a PDF of the artwork and the user's writing.
+         */
+        async function saveAsPDF() {
+            // Check if jsPDF and html2canvas are loaded
+            if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+                alert('PDF library is not loaded. Please check your internet connection and try again.');
+                return;
+            }
+
+            // 1. Get the hidden container meant for PDF export
+            const pdfContent = document.getElementById('pdf-export-content');
+            
+            // 2. Update the content of the hidden container with current data
+            document.getElementById('pdf-image').src = artworkImage.src;
+            document.getElementById('pdf-title').textContent = artworkTitle.textContent;
+            document.getElementById('pdf-info').textContent = artworkInfo.textContent;
+            document.getElementById('pdf-text').textContent = writingInput.value;
+
+            // 3. Make the hidden container temporarily visible for html2canvas to capture it
+            pdfContent.classList.remove('hidden');
+
+            try {
+                // 4. Use html2canvas to capture the element as an image
+                const canvas = await html2canvas(pdfContent, {
+                    scale: 2, // Increase scale for better resolution
+                    useCORS: true // Important for external images
+                });
+                
+                // 5. Create a new jsPDF instance
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'px',
+                    format: 'a4'
+                });
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                
+                // Calculate aspect ratio to fit image in PDF
+                const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+                const newImgWidth = imgWidth * ratio;
+                const newImgHeight = imgHeight * ratio;
+                
+                const imgData = canvas.toDataURL('image/png');
+                
+                // 6. Add the captured image to the PDF
+                pdf.addImage(imgData, 'PNG', 0, 0, newImgWidth, newImgHeight);
+                
+                // 7. Save the PDF with a dynamic file name
+                const fileName = `${artworkTitle.textContent.replace(/\s+/g, '_')}_response.pdf`;
+                pdf.save(fileName);
+
+            } catch(error) {
+                console.error("PDF generation failed:", error);
+                alert("PDF를 생성하는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
+            } finally {
+                // 8. Hide the temporary container again
+                pdfContent.classList.add('hidden');
+            }
+        }
+
+        // Event Listeners
+        loadArtworkBtn.addEventListener('click', fetchRandomArtwork);
+        savePdfBtn.addEventListener('click', saveAsPDF);
+
+        // Initial message on page load, prompting user to start
+        // No artwork is loaded initially to save API calls until the user is ready.
+    </script>
+
+</body>
+</html>
+
